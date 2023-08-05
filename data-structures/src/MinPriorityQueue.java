@@ -1,6 +1,9 @@
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
 
-public class MinPriorityQueueQuickRemovals<Key extends Comparable<Key>> {
+public class MinPriorityQueue<Key extends Comparable<Key>> implements Iterable<Key> {
 
     private static final int FIXED_SIZE = 8;
 
@@ -10,27 +13,19 @@ public class MinPriorityQueueQuickRemovals<Key extends Comparable<Key>> {
     // index of the last position of an element in the pq
     private int n;
 
-    /*
-    * This maps keep track of the possible indices a particular node
-    * is found in the heap. Having this mapping lets us have O(log(n))
-    * removals and O(1) element containment check at the cost of some
-    * additional space and minor overhead
-    * */
-    private Map<Key, TreeSet<Integer>> map = new HashMap<>();
-
-    public MinPriorityQueueQuickRemovals(){
+    public MinPriorityQueue(){
         pq = (Key[]) new Comparable[FIXED_SIZE];
         n = 0;
     }
 
-    public MinPriorityQueueQuickRemovals(int size){
+    public MinPriorityQueue(int size) {
         pq = (Key[]) new Comparable[size];
         n = 0;
     }
 
     // Construct a priority queue (using heapify) from an array.
     // O(n)
-    public MinPriorityQueueQuickRemovals(Key[] elements) {
+    public MinPriorityQueue(Key[] elements) {
 
         // create the heap array with a good length in order to save the items in a 1 indexed fashion
         pq = (Key[]) new Comparable[elements.length+1];
@@ -39,7 +34,6 @@ public class MinPriorityQueueQuickRemovals<Key extends Comparable<Key>> {
         // place all elements in the map and heap
         for (int i = 0; i < elements.length; i++) {
             pq[++n] = elements[i];
-            mapAdd(elements[i], i);
         }
 
         // heapify process O(n)
@@ -51,12 +45,12 @@ public class MinPriorityQueueQuickRemovals<Key extends Comparable<Key>> {
 
     // Construct the heap from a collection of element
     // O(nlog(n))
-    public MinPriorityQueueQuickRemovals(Collection<Key> elements){
+    public MinPriorityQueue(Collection<Key> elements){
         this(elements.size()+1);
         for (Key elem : elements) insert(elem);
     }
 
-    // test if the pq is empty
+    // test of the pq is empty
     public boolean isEmpty() {
         return n == 0;
     }
@@ -72,31 +66,23 @@ public class MinPriorityQueueQuickRemovals<Key extends Comparable<Key>> {
     }
 
     // clear the heap and the map
+    // O(n)
     public void clear() {
         for (int i = 0; i < n; i++) {
             pq[++i] = null;
         }
         n = 0;
-        map.clear();
     }
 
     // return the element at the root of the pq
     // O(1)
     public Key peek() {
-        if (isEmpty()) throw new NoSuchElementException("Priority queue underflow");
+        if (isEmpty()) return null;
         return pq[1];
     }
 
-    // Test if an element is in heap
-    // O(1)
-    public boolean contains(Key element) {
-        if (element == null) return false;
-
-        // map lookup to check containment, O(1)
-        return map.containsKey(element);
-    }
-
     // insert an item at the end of the array and the swim to maintain the invariant
+    // O(log(n))
     public void insert(Key item) {
 
         if (item == null) throw new IllegalArgumentException();
@@ -105,10 +91,7 @@ public class MinPriorityQueueQuickRemovals<Key extends Comparable<Key>> {
 
         pq[++n] = item;
 
-        mapAdd(item, n);
-
         swim(n);
-
     }
 
     // scenario when child's key become smaller than parent's kys
@@ -126,6 +109,7 @@ public class MinPriorityQueueQuickRemovals<Key extends Comparable<Key>> {
 
     // O(log(n))
     public Key deleteMin() {
+
         if (isEmpty()) throw new NoSuchElementException("Priority queue underflow");
 
         Key element = pq[1];
@@ -158,41 +142,6 @@ public class MinPriorityQueueQuickRemovals<Key extends Comparable<Key>> {
         }
     }
 
-    // removes a particular element in the heap
-    // O(log(n))
-    public boolean remove(Key element) {
-        if (element == null) return false;
-
-        int index = mapGet(element);
-        if (index != -1) removeAt(index);
-        return index != -1;
-    }
-
-    public Key removeAt(int index) {
-        if (isEmpty()) return null;
-
-        Key element = pq[index];
-        exch(index, n);
-
-        pq[n] = null;
-        mapRemove(element, n);
-        n--;
-
-        // removed last element, nothing more to do
-        if (index == n+1) return element;
-
-        // Element that was in the last position of the heap before the exch
-        Key exchElement = pq[index];
-
-        // try sinking
-        sink(index);
-
-        // if sinking didn't work, then try swim the element
-        if (pq[index] == exchElement) swim(index);
-
-        return element;
-    }
-
     // is pq[1..n] a min heap?
     private boolean isMinHeap() {
         for (int i = 1; i <= n; i++) {
@@ -211,7 +160,7 @@ public class MinPriorityQueueQuickRemovals<Key extends Comparable<Key>> {
     // Called this method with k=1 to start at the root
     public boolean isMinHeap(int k) {
 
-        if (k >= n) return true;
+        if (k > n) return true;
 
         int left = 2 * k;
         int right = 2 * k + 1;
@@ -226,7 +175,6 @@ public class MinPriorityQueueQuickRemovals<Key extends Comparable<Key>> {
         return isMinHeap(left) && isMinHeap(right);
     }
 
-    @Override
     public String toString() {
         return Arrays.toString(Arrays.copyOfRange(pq, 1, n+1));
     }
@@ -235,57 +183,10 @@ public class MinPriorityQueueQuickRemovals<Key extends Comparable<Key>> {
         return pq[i].compareTo(pq[j]) < 0;
     }
 
-    private void exch(int i, int j){
+    private void exch(int i, int j) {
         Key aux = pq[i];
         pq[i] = pq[j];
         pq[j] = aux;
-
-        mapExch(pq[i], pq[j], i, j);
-    }
-
-    // add a node value and its index to the map
-    private void mapAdd(Key value, int index) {
-        TreeSet <Integer> set = map.get(value);
-
-        // New value being inserted in map
-        if (set == null) {
-            set = new TreeSet<>();
-            set.add(index);
-            map.put(value, set);
-        }else{
-            // value already exist in map
-            set.add(index);
-        }
-    }
-
-    // Remove the index at a given value
-    // O(log(n))
-    private void mapRemove(Key value, int index) {
-        TreeSet<Integer> set = map.get(value);
-        set.remove(index); // TreeSet takes O(log(n)) time to remove
-
-        if (set.isEmpty()) map.remove(value);
-    }
-
-    // Return the index of the value in the heap
-    private int mapGet(Key value) {
-        TreeSet<Integer> set = map.get(value);
-
-        if (set != null) return set.last();
-        return -1;
-    }
-
-    // Exch the index of two nodes internally within the map
-    private void mapExch(Key value1, Key value2, int index1, int index2) {
-
-        TreeSet <Integer> set1 = map.get(value1);
-        TreeSet <Integer> set2 = map.get(value2);
-
-        set1.remove(index1);
-        set2.remove(index2);
-
-        set1.add(index2);
-        set2.add(index1);
     }
 
     private void resize(int len) {
@@ -294,29 +195,37 @@ public class MinPriorityQueueQuickRemovals<Key extends Comparable<Key>> {
         pq = copy;
     }
 
+    // Returns an iterator that iterates over the keys on this priority queue
+    // in ascending order.
+    public Iterator<Key> iterator() {
+        return new HeapIterator();
+    }
+
+    private class HeapIterator implements Iterator<Key> {
+
+        private final MinPriorityQueue<Key> copy;
+
+        public HeapIterator() {
+            copy = new MinPriorityQueue<Key>(size());
+
+            for (int i = 0; i < n; i++) {
+                copy.insert(pq[++i]);
+            }
+        }
+
+        @Override
+        public boolean hasNext() {
+            return !copy.isEmpty();
+        }
+
+        @Override
+        public Key next() {
+            return copy.deleteMin();
+        }
+    }
 
     public static void main(String[] args) {
-        /*
-        MinPriorityQueue<Integer> pq = new MinPriorityQueue<Integer>();
-
-        System.out.println("Capacity: " + pq.capacity());
-
-        pq.insert(5);
-        pq.insert(4);
-        pq.insert(3);
-        pq.insert(2);
-        pq.insert(1);
-
-        System.out.println("Deleted min: " + pq.deleteMin());
-        System.out.println("Deleted min: " + pq.deleteMin());
-        System.out.println("Deleted min: " + pq.deleteMin());
-
-        pq.insert(-100);
-        System.out.println("Deleted min: " + pq.deleteMin());
-        System.out.println("Deleted min: " + pq.deleteMin());
-         */
-
-        MinPriorityQueueQuickRemovals<Integer> pq = new MinPriorityQueueQuickRemovals<>(new Integer[]{7, 6, 5, 4, 3, 2, 1});
+        MinPriorityQueue<Integer> pq = new MinPriorityQueue<>(new Integer[]{7, 6, 5, 4, 3, 2, 1});
         System.out.println("Deleted min: " + pq.deleteMin());
         System.out.println("Deleted min: " + pq.deleteMin());
         System.out.println("Deleted min: " + pq.deleteMin());
@@ -329,6 +238,5 @@ public class MinPriorityQueueQuickRemovals<Key extends Comparable<Key>> {
         System.out.println("Deleted min: " + pq.deleteMin());
         System.out.println("PQ: " + pq.toString());
         System.out.println("Min PQ: " +  pq.isMinHeap(1));
-
     }
 }
