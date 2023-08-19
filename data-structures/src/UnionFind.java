@@ -13,7 +13,7 @@ public class UnionFind {
     // and with size of each root as 1
     public UnionFind (int N) {
 
-        if (n <= 0) throw new IllegalArgumentException("size <= 0 is not allowed");
+        if (N <= 0) throw new IllegalArgumentException("size <= 0 is not allowed");
 
         id = new int[N];
         size = new int[N];
