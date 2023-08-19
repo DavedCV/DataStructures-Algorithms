@@ -1,3 +1,4 @@
+import javax.imageio.ImageTranscoder;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
@@ -54,7 +55,6 @@ public class BinarySearchTree <T extends Comparable<T>> {
         // check if the number of nodes is changed after the call to the helper
         return oldRootCount != newRootCount;
     }
-
     private Node add(T value, Node x) {
 
         // add new node, with count 1 representing the same node in the subtree
@@ -72,7 +72,6 @@ public class BinarySearchTree <T extends Comparable<T>> {
     public void deleteMin() {
         root = deleteMin(root);
     }
-
     // recursively go left until a null link is reached
     // when reached, replace that link with the right tree of the node
     // update links and node counts after recursive calls
@@ -81,14 +80,6 @@ public class BinarySearchTree <T extends Comparable<T>> {
 
         x.left = deleteMin(x.left);
         x.count = 1 + size(x.left) + size(x.right);
-
-        return x;
-    }
-
-    private Node getMin(Node x) {
-        while (x.left != null){
-            x = x.left;
-        }
 
         return x;
     }
@@ -102,7 +93,6 @@ public class BinarySearchTree <T extends Comparable<T>> {
 
         return oldNodeCount-1 == newNodeCount;
     }
-
     private Node delete(Node x, T value){
         if (x == null) return null;
 
@@ -130,7 +120,6 @@ public class BinarySearchTree <T extends Comparable<T>> {
     public boolean contains(T value){
         return contains(value, root);
     }
-
     private boolean contains(T value, Node x){
         if (x == null) return false;
 
@@ -139,6 +128,8 @@ public class BinarySearchTree <T extends Comparable<T>> {
         else if (cmp > 0) return contains(value, x.right);
         else return true;
     }
+
+    // --------------------------------------------- traverse iterators ------------------------------------------------
 
     public Iterator<T> traverse(TreeTraversalOrder order) {
         return switch (order) {
@@ -228,6 +219,7 @@ public class BinarySearchTree <T extends Comparable<T>> {
 
     private Iterator<T> inOrderTraversal() {
         final Deque<Node> stack = new ArrayDeque<>();
+        stack.addFirst(root);
 
         return new Iterator<T>() {
             Node trav = root;
@@ -240,14 +232,17 @@ public class BinarySearchTree <T extends Comparable<T>> {
             @Override
             public T next() {
 
-                while (trav != null){
-                    stack.addFirst(trav);
+                while (trav != null && trav.left != null){
+                    stack.addFirst(trav.left);
                     trav = trav.left;
                 }
 
                 Node node = stack.removeFirst();
 
-                if (node.right != null) trav = node.right;
+                if (node.right != null) {
+                    stack.addFirst(node.right);
+                    trav = node.right;
+                }
 
                 return node.value;
             }
@@ -276,6 +271,134 @@ public class BinarySearchTree <T extends Comparable<T>> {
         };
     }
 
+    // ------------------------------------- helper methods and in-order ops -------------------------------------------
+
+    // get the min node from a root node x
+    public T getMin(){
+        return getMin(root).value;
+    }
+    private Node getMin(Node x) {
+        while (x.left != null){
+            x = x.left;
+        }
+
+        return x;
+    }
+
+    // get the max node from a root node x
+    public T getMax(){
+        return getMax(root).value;
+    }
+    private Node getMax(Node x) {
+        while (x.right != null) {
+            x = x.right;
+        }
+
+        return x;
+    }
+
+    // select the k smallest value of the tree
+    public T select(int order) {
+        if (order < 0 || order >= size()) throw new IllegalArgumentException("Argument is out of range");
+
+        Node node = select(order, root);
+        return node.value;
+    }
+    private Node select(int order, Node x) {
+
+        // get the count of nodes in the subtree rooted at x.left
+        int leftSize = size(x.left);
+
+        // if the order is less than the left size, then recurse in the left subtree
+        // cause the k-smallest is in that side
+        if (order < leftSize) return select(order, x.left);
+        // if the order is greater than the left size, then recurse in the right subtree
+        // and update the order to not take into account the size of the pruned part of tree
+        if (order > leftSize) return select(order - leftSize - 1, x.right);
+
+        // if the order is equal to the size of the left size, then the current node is the target
+        return x;
+    }
+
+    // find the number of nodes that are less than the given value
+    public int rank (T value) {
+        return rank(value, root);
+    }
+    private int rank (T value, Node x){
+        // if node is null, the rank is 0
+        if (x == null) return 0;
+
+
+        int cmp = value.compareTo(x.value);
+
+        // if the key is less than the node key, find the rank from the left tree
+        if (cmp < 0) return rank(value, x.left);
+
+        // if the key is greater than the node key, take into account the
+        // longitude of the left part of the tree and find based on the
+        // right subtree
+        if (cmp > 0) return 1 + size(x.left) + rank(value, x.right);
+
+        // if the key is equal to the node key, return the size of the left subtree
+        // the count of the elements that are less
+        return size(x.left);
+    }
+
+    // find the greatest value, less than the given value
+    public T floor(T value){
+        // get the node that represents the floor
+        Node floor = floor(value, root);
+        if (floor == null) return null;
+        else return floor.value;
+    }
+    private Node floor(T value, Node x) {
+        if (x == null) return null;
+
+        int cmp = value.compareTo(x.value);
+
+        // if the node value is equal to the target value, then we are done
+        if (cmp == 0) return x;
+
+        // if the value is less than the node value, then recurse in the left subtree
+        if (cmp < 0) return floor(value, x.left);
+
+        // if the value is greater than the node value, then check if there are any
+        // node less or equal to the target in the right subtree
+        else {
+            Node t = floor(value, x.right);
+            if (t == null) return x;
+            else return t;
+        }
+    }
+
+    // find the smallest value, greater than the given value
+    public T ceil(T value){
+        // get the node that represents the floor
+        Node ceil = ceil(value, root);
+        if (ceil == null) return null;
+        else return ceil.value;
+    }
+    private Node ceil(T value, Node x) {
+        if (x == null) return null;
+
+        int cmp = value.compareTo(x.value);
+
+        // if the node value is equal to the target value, then we are done
+        if (cmp == 0) return x;
+
+        // if the value is greater than the node value, then recurse in the left subtree
+        // the ceil must be in the right subtree
+        if (cmp > 0) return ceil(value, x.right);
+
+        // if the value is lesser than the node value, then check if there are any
+        // node greater or equal to the target in the left subtree
+        else {
+            Node t = ceil(value, x.left);
+            if (t == null) return x;
+            else return t;
+        }
+    }
+
     public static void main(String[] args) {
         BinarySearchTree<Integer> tree = new BinarySearchTree<>();
 
@@ -286,10 +409,57 @@ public class BinarySearchTree <T extends Comparable<T>> {
         tree.add(5);
         tree.add(7);
 
-        Iterator<Integer> iterator = tree.traverse(TreeTraversalOrder.POST_ORDER);
-        while(iterator.hasNext()){
-            System.out.println(iterator.next());
+        /*
+             4
+           /   \
+          2     6
+         /     / \
+        1     5   7
+
+        */
+
+        System.out.println("Tree size: " + tree.size());
+        System.out.println("Min: " + tree.getMin());
+        System.out.println("Max: " + tree.getMax());
+        System.out.println("Contains 6: " + tree.contains(6));
+        System.out.println("0-smallest value: " + tree.select(0));
+        System.out.println("2-smallest value: " + tree.select(2));
+        System.out.println("Rank 8: " + tree.rank(8));
+        System.out.println("Rank 3: " + tree.rank(3));
+        System.out.println("Floor 8: " + tree.floor(8));
+        System.out.println("Floor 3: " + tree.floor(3));
+        System.out.println("Ceil -4: " + tree.ceil(-4));
+        System.out.println("Ceil 3: " + tree.ceil(3));
+
+        tree.deleteMin();
+        System.out.println("Delete min, new min: " + tree.getMin());
+
+        Iterator<Integer> inOrder = tree.traverse(TreeTraversalOrder.IN_ORDER);
+        Iterator<Integer> postOrder = tree.traverse(TreeTraversalOrder.POST_ORDER);
+        Iterator<Integer> levelOrder = tree.traverse(TreeTraversalOrder.LEVEL_ORDER);
+
+        StringBuffer inOrderRep = new StringBuffer().append("[");
+        StringBuffer postOrderRep = new StringBuffer().append("[");
+        StringBuffer levelOrderRep = new StringBuffer().append("[");
+
+        while (inOrder.hasNext()) {
+            inOrderRep.append(inOrder.next());
+            postOrderRep.append(postOrder.next());
+            levelOrderRep.append(levelOrder.next());
+
+            if (inOrder.hasNext()) {
+                inOrderRep.append(", ");
+                postOrderRep.append(", ");
+                levelOrderRep.append(", ");
+            }
         }
 
+        inOrderRep.append("]");
+        postOrderRep.append("]");
+        levelOrderRep.append("]");
+
+        System.out.println("in-order traverse: " +inOrderRep.toString());
+        System.out.println("post-order traverse: " + postOrderRep.toString());
+        System.out.println("level-order traverse: " +levelOrderRep.toString());
     }
 }
