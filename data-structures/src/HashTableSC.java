@@ -263,8 +263,15 @@ public class HashTableSC<Key, Value> implements Iterable<Key> {
         sb.append("{");
         for (int i = 0; i < capacity; i++) {
             if (table[i] == null) continue;
-            for (Entry<Key, Value> entry : table[i]) sb.append(entry).append(", ");
+
+            for (Entry<Key, Value> entry : table[i])
+                sb.append(entry).append(", ");
         }
+
+        if (sb.length() > 2)
+            // Remove the trailing comma and space
+            sb.setLength(sb.length() - 2);
+
         sb.append("}");
         return sb.toString();
     }
