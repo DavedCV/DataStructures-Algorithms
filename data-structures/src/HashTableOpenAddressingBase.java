@@ -82,7 +82,7 @@ public abstract class HashTableOpenAddressingBase<Key, Value> implements Iterabl
     // double the size of the hash-table
     protected void resizeTable() {
         increaseCapacity();
-        increaseCapacity();
+        adjustCapacity();
 
         threshold = (int) (capacity * loadFactor);
 
