@@ -6,6 +6,8 @@ import java.util.concurrent.atomic.AtomicStampedReference;
 *   Base class for hashtables with an open addressing collision resolution method
 *   such as linear probing, quadratic probing and double hashing.
 * */
+
+@SuppressWarnings("unchecked")
 public abstract class HashTableOpenAddressingBase<Key, Value> implements Iterable<Key> {
 
     // used to set the maximum load factor of the hashtable
@@ -151,6 +153,12 @@ public abstract class HashTableOpenAddressingBase<Key, Value> implements Iterabl
         return hashtableValues;
     }
 
+    // converts a hash value to an index. Essentially, this strips the
+    // negative sign and places the hash value in the domain [0, capacity)
+    private int normalizeIndex(int keyHash) {
+        return (keyHash & 0x7FFFFFFF) % capacity;
+    }
+
     // returns true/false on whether a given key exists within the hashtable
     private boolean hasKey(Key key) {
         if (key == null) throw new IllegalArgumentException("Null key");
@@ -190,16 +198,9 @@ public abstract class HashTableOpenAddressingBase<Key, Value> implements Iterabl
                 // else key was not found in the hashtable
                 } else return false;
             }
-
         }
-
     }
 
-    // converts a hash value to an index. Essentially, this strips the
-    // negative sign and places the hash value in the domain [0, capacity)
-    private int normalizeIndex(int keyHash) {
-        return (keyHash & 0x7FFFFFFF) % capacity;
-    }
 
     // PLace a key-value pair into the hash-table. If the value already exists
     // then the value is updated.
@@ -217,7 +218,6 @@ public abstract class HashTableOpenAddressingBase<Key, Value> implements Iterabl
             if (keys[i] == TOMBSTONE) {
                 if (j == -1) j = i;
             }
-
             // the current cell already contains a key
             else if (keys[i] != null) {
 
@@ -229,16 +229,15 @@ public abstract class HashTableOpenAddressingBase<Key, Value> implements Iterabl
                     if (j == -1) {
                         values[i] = value;
                     } else {
-                        keys[j] = TOMBSTONE;
-                        values[j] = null;
-                        keys[i] = key;
-                        values[i] = value;
+                        keys[i] = TOMBSTONE;
+                        values[i] = null;
+                        keys[j] = key;
+                        values[j] = value;
                     }
 
                     modificationCount++;
                     return oldValue;
                 }
-
                 // current cell is null so an insertion/update can occur
                 else {
 
@@ -249,9 +248,8 @@ public abstract class HashTableOpenAddressingBase<Key, Value> implements Iterabl
                         keys[i] = key;
                         values[i] = value;
                     }
-
                     // Previously seen deleted bucket. Instead of inserting
-                    // the new element at i where the null element is insert
+                    // the new element at i where the null element is, insert
                     // it where the deleted token was found.
                     else {
                         keyCount++;
@@ -263,8 +261,49 @@ public abstract class HashTableOpenAddressingBase<Key, Value> implements Iterabl
                     return null;
                 }
             }
-
         }
+    }
 
+    // Get the value associated with the input key
+    // returns null if the value is null and also returns
+    // null if the key does not exists
+    public Value get(Key key) {
+        if (key == null) throw new IllegalArgumentException("Null key");
+
+        // ??
+        setupProbing(key);
+        final int offset = normalizeIndex(key.hashCode());
+
+        for (int i = offset, j = -1, x = 1 ;; i = normalizeIndex(offset + probe(x++))) {
+
+            // Ignore deleted cells, but record where the first index
+            // of a deleted cell is found to perform lazy relocation later.
+            if (keys[i] == TOMBSTONE){
+                if (j == -1) j = i;
+            }
+            else if (keys[i] == null) return null;
+            // We hit a non-null key, perhaps it's the one we're looking for.
+            else {
+
+                // The key we want is in the hash-table!
+                if (keys[i].equals(key)) {
+
+                    // If j != -1 this means we previously encountered a deleted cell.
+                    // We can perform an optimization by swapping the entries in cells
+                    // i and j so that the next time we search for this key it will be
+                    // found faster. This is called lazy deletion/relocation.
+                    if (j != -1) {
+                        // Swap key-values pairs at indexes i and j.
+                        keys[j] = keys[i];
+                        values[j] = values[i];
+                        keys[i] = TOMBSTONE;
+                        values[i] = null;
+
+                        return values[j];
+                    }
+                    else return values[i];
+                }
+            }
+        }
     }
 }
