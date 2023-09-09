@@ -63,7 +63,11 @@ public abstract class HashTableOpenAddressingBase<Key, Value> implements Iterabl
 
     // the following methods dictate how the probing is to actually
     // occur for whatever open addressing scheme is implemented
+
+    // helps with the definition of some important variables for the probing function (necessary for double hashing)
     protected abstract void setupProbing(Key key);
+
+    // the actual method to do the probing
 
     protected abstract int probe(int x);
 
@@ -75,8 +79,7 @@ public abstract class HashTableOpenAddressingBase<Key, Value> implements Iterabl
     // increase the capacity of the hashtable
     protected void increaseCapacity() {
 
-        // ??
-        capacity = (2 * capacity) + 1;
+        capacity = (2 * capacity);
     }
 
     // double the size of the hash-table
@@ -156,8 +159,14 @@ public abstract class HashTableOpenAddressingBase<Key, Value> implements Iterabl
 
     // converts a hash value to an index. Essentially, this strips the
     // negative sign and places the hash value in the domain [0, capacity)
-    private int normalizeIndex(int keyHash) {
+    protected int normalizeIndex(int keyHash) {
         return (keyHash & 0x7FFFFFFF) % capacity;
+    }
+
+    // Finds the greatest common denominator of a and b.
+    protected static int gcd(int a, int b) {
+        if (b == 0) return a;
+        return gcd(b, a % b);
     }
 
     // returns true/false on whether a given key exists within the hashtable

@@ -21,12 +21,6 @@ public class HashTableLinearProbing<Key, Value> extends HashTableOpenAddressingB
         super(capacity, loadFactor);
     }
 
-    // Finds the greatest common denominator of a and b.
-    protected static int gcd(int a, int b) {
-        if (b == 0) return a;
-        return gcd(b, a % b);
-    }
-
     // with linear probing is not necessary to do any setup
     @Override
     protected void setupProbing(Key key) {}
