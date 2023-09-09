@@ -1,6 +1,7 @@
 import java.util.ArrayList;
+import java.util.ConcurrentModificationException;
+import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicStampedReference;
 
 /*
 *   Base class for hashtables with an open addressing collision resolution method
@@ -274,6 +275,8 @@ public abstract class HashTableOpenAddressingBase<Key, Value> implements Iterabl
         setupProbing(key);
         final int offset = normalizeIndex(key.hashCode());
 
+        // Start at the original hash value and probe until we find a spot where our key
+        // is or we hit a null element in which case our element does not exist.
         for (int i = offset, j = -1, x = 1 ;; i = normalizeIndex(offset + probe(x++))) {
 
             // Ignore deleted cells, but record where the first index
@@ -305,5 +308,83 @@ public abstract class HashTableOpenAddressingBase<Key, Value> implements Iterabl
                 }
             }
         }
+    }
+
+    // Removes a key from the map and returns the value.
+    // NOTE: returns null if the value is null AND also returns
+    // null if the key does not exists.
+    public Value remove(Key key) {
+        if (key == null) throw new IllegalArgumentException("Null key");
+
+        // ??
+        setupProbing(key);
+        final int offset = normalizeIndex(key.hashCode());
+
+        // Starting at the original hash probe until we find a spot where our key is
+        // or we hit a null element in which case our element does not exist.
+        for (int i = offset, x = 1 ;; i = normalizeIndex(offset + probe(x++))) {
+
+            // Ignore deleted cells, but record where the first index
+            // of a deleted cell is found to perform lazy relocation later.
+            if (keys[i] == TOMBSTONE) continue;
+
+            // Key was not found in hash-table.
+            if (keys[i] == null) return null;
+
+            // The key we want to remove is in the hash-table!
+            if (keys[i].equals(key)) {
+                keyCount--;
+                modificationCount++;
+                Value oldValue = values[i];
+                keys[i] = TOMBSTONE;
+                values[i] = null;
+                return oldValue;
+            }
+        }
+    }
+
+    // return a string view of this hashtable
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("{");
+        for (int i = 0; i < capacity; i++)
+            if (keys[i] != null && keys[i] != TOMBSTONE) sb.append(keys[i] + " => " + values[i] + ", ");
+
+        if (sb.length() > 2){
+            // Remove the trailing comma and space
+            sb.setLength(sb.length() - 2);
+        }
+        sb.append("}");
+
+        return sb.toString();
+    }
+
+    @Override
+    public Iterator<Key> iterator() {
+        // Before the iteration begins record the number of modifications
+        // done to the hash-table. This value should not change as we iterate
+        // otherwise a concurrent modification has occurred :0
+        final int MODIFICATION_COUNT = modificationCount;
+
+        return new Iterator<>() {
+
+            int index, keysLeft = keyCount;
+
+            @Override
+            public boolean hasNext() {
+                // The contents of the table have been altered
+                if (MODIFICATION_COUNT != modificationCount) throw new ConcurrentModificationException();
+                return keysLeft != 0;
+            }
+
+            @Override
+            public Key next() {
+                while (keys[index] == null || keys[index] == TOMBSTONE) index++;
+                keysLeft--;
+                return keys[index++];
+            }
+        };
     }
 }
